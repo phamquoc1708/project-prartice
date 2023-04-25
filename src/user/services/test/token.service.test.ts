@@ -1,30 +1,26 @@
 import { TokenService } from "../token.service";
-import { KeyTokenModel } from "../../models/KeyToken.schema";
-import config from "../../../config/config.mongodb";
 import mongoose from "mongoose";
 import { clearDB, closeDB, newObjectId } from "../../../helpers/testing";
 
 describe("TokenService", () => {
   const tokenService = new TokenService();
-
-  beforeEach(async () => {
-    clearDB();
+  beforeAll(async () => {
+    await clearDB();
   });
 
-  afterAll(async () => {
-    closeDB();
+  afterEach(async () => {
+    await closeDB();
   });
 
-  describe("createAuthToken", () => {
+  describe("Token Service createAuthToken", () => {
     it("should create a new token in the database", async () => {
       // Arrange
-      const userId = (await newObjectId()).toString();
+      const userId = newObjectId().toString();
       const privateKey = "private";
       const publicKey = "public";
 
       // Act
       const result = await tokenService.createAuthToken({ userId, privateKey, publicKey });
-      console.log(result);
       // Assert
       expect(result).not.toBeNull();
       expect(result).toHaveProperty("userId", new mongoose.Types.ObjectId(userId));

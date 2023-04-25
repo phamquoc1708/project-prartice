@@ -1,5 +1,6 @@
-import mongoose, { Model } from "mongoose";
+import mongoose, { PaginateModel } from "mongoose";
 import { Schema } from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 export interface Token {
   userId: Schema.Types.ObjectId;
@@ -28,6 +29,8 @@ const tokenSchema = new mongoose.Schema<Token>(
   }
 );
 
+tokenSchema.plugin(mongoosePaginate);
+
 export type TokenDoc = Token & Document;
 
-export const KeyTokenModel = mongoose.model<Token>("Token", tokenSchema);
+export const KeyTokenModel = mongoose.model<TokenDoc>("Token", tokenSchema, "tokens") as PaginateModel<TokenDoc>;

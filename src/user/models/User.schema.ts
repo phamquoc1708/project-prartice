@@ -1,4 +1,5 @@
-import mongoose, { Model } from "mongoose";
+import mongoose, { Model, PaginateModel } from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const STATUS_USER = {
   VERIFIED: "VERIFIED",
@@ -72,6 +73,7 @@ const userSchema = new mongoose.Schema<User>(
   }
 );
 
+userSchema.plugin(mongoosePaginate);
 export type UserDoc = User & Document;
 
-export const UserModel = mongoose.model<User>("User", userSchema);
+export const UserModel = mongoose.model<UserDoc>("User", userSchema, "users") as PaginateModel<UserDoc>;

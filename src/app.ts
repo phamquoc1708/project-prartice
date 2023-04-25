@@ -2,6 +2,7 @@ import express from "express";
 import MiddlewareService from "./middleware/middleware.service";
 import routes from "./routes";
 import morgan from "morgan";
+require("dotenv").config();
 
 const app: express.Application = express();
 
