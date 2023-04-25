@@ -2,11 +2,11 @@ import jwt from "jsonwebtoken";
 import { AppError } from "./error";
 import { StatusCodes } from "http-status-codes";
 
-export const generateToken = (payload: object, privateKey: string) => {
-  return jwt.sign(payload, privateKey, { expiresIn: "20mins" });
+const generateToken = (payload: object, privateKey: string, expiresIn?: string) => {
+  return jwt.sign(payload, privateKey, { expiresIn });
 };
 
-export const verifyToken = (token: string, secret: string) => {
+const verifyToken = (token: string, secret: string) => {
   try {
     const result = jwt.verify(token, secret);
     return result;
@@ -15,11 +15,17 @@ export const verifyToken = (token: string, secret: string) => {
   }
 };
 
-export const decodeToken = (token: string) => {
+const decodeToken = (token: string) => {
   try {
     const result = jwt.decode(token);
     return result;
   } catch (error) {
     throw new AppError(StatusCodes.BAD_REQUEST, "Token invalid");
   }
+};
+
+export default {
+  generateToken,
+  verifyToken,
+  decodeToken,
 };

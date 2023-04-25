@@ -1,43 +1,42 @@
 import crypto from "crypto";
 import _ from "lodash";
 import bcrypt from "bcrypt";
+require("dotenv").config();
 
-import { generateToken, verifyToken, decodeToken } from "./../../utils/token";
-import { TokenService, ITokenService } from "./token.service";
+import tokenUtils from "./../../utils/token";
+import { ITokenService } from "./token.service";
 import { StatusCodes } from "http-status-codes";
 import { AppError } from "./../../utils/error";
-import { UserModel, User } from "./../models/User.schema";
+import { User, UserDoc } from "./../models/User.schema";
 import { RegisterInput, RegisterOutput, CreatePasswordInput, UpdateInformationInput } from "./../types/user.type";
-import { createTokenPair } from "../../auth/authUtils";
+import { PaginateModel } from "mongoose";
 
 export interface IUserService {
   register(payload: RegisterInput): Promise<RegisterOutput>;
   verifyCreatePasswordToken(payload: string): Promise<User>;
   createLinkCreatePassword(payload: User): string;
-  createPassword(payload: CreatePasswordInput): Promise<void>;
+  createPassword(payload: CreatePasswordInput): Promise<User>;
   updateUser(payload: UpdateInformationInput): Promise<void>;
 }
 
 export class UserService implements IUserService {
-  private repository = UserModel;
-  private tokenService: ITokenService = new TokenService();
+  private repository: PaginateModel<UserDoc>;
+  private tokenService: ITokenService;
 
-  constructor() {}
+  constructor(public repositoryUser: any, tokenService: ITokenService) {
+    this.repository = repositoryUser;
+    this.tokenService = tokenService;
+  }
 
   async register(payload: RegisterInput) {
     const userExist = await this.repository.findOne({ email: payload.email });
     if (userExist) {
-      throw new AppError(StatusCodes.BAD_GATEWAY, "Email has already been used");
+      throw new AppError(StatusCodes.BAD_REQUEST, "Email has already been used");
     }
     const createPasswordSecret = crypto.randomUUID();
-    console.log(payload);
-    let user;
-    try {
-      user = await this.repository.create({ ...payload, createPasswordSecret });
-    } catch (err) {
-      console.log(err);
-    }
-    console.log(user);
+
+    const user = await this.repository.create({ ...payload, createPasswordSecret });
+
     if (!user) {
       throw new AppError(StatusCodes.BAD_REQUEST, "Cannot create user");
     }
@@ -53,10 +52,10 @@ export class UserService implements IUserService {
 
     if (!keyStore) throw new AppError(StatusCodes.BAD_REQUEST, "KeyStore Error");
 
-    const tokens = createTokenPair({ userId: user._id.toString(), email: user.email }, publicKey, privateKey);
+    const tokens = this.tokenService.createTokenPair({ userId: user._id.toString(), email: user.email }, publicKey, privateKey);
 
     if (!tokens) {
-      throw new AppError(StatusCodes.BAD_REQUEST, "Cannot create user");
+      throw new AppError(StatusCodes.BAD_REQUEST, "Cannot create token");
     }
 
     return {
@@ -68,18 +67,19 @@ export class UserService implements IUserService {
   }
 
   createLinkCreatePassword(user: User) {
-    const userToken = generateToken({ email: user.email }, user.createPasswordSecret as string);
-    return generateToken({ userToken }, process.env.CREATE_PASSWORD_SECRET as string);
+    const userToken = tokenUtils.generateToken({ email: user.email }, user.createPasswordSecret as string, process.env.EXPIRES_TOKEN_CREATE_PASSWORD);
+    return tokenUtils.generateToken({ token: userToken }, process.env.CREATE_PASSWORD_SECRET as string, process.env.EXPIRES_TOKEN_CREATE_PASSWORD);
   }
 
   async verifyCreatePasswordToken(token: string) {
-    const userToken = verifyToken(token, process.env.CREATE_PASSWORD_SECRET as string);
-
-    const data = decodeToken(userToken as string) as { email: string };
+    const userToken = tokenUtils.verifyToken(token, process.env.CREATE_PASSWORD_SECRET as string) as { token: string };
+    const data = tokenUtils.decodeToken(userToken.token) as { email: string };
 
     const user = await this.repository.findOne({ email: data.email });
+    if (!user) throw new AppError(StatusCodes.BAD_REQUEST, "Token invalid");
 
-    if (!user) {
+    const verifyToken = tokenUtils.verifyToken(userToken.token, user.createPasswordSecret as string);
+    if (!verifyToken) {
       throw new AppError(StatusCodes.BAD_REQUEST, "Token invalid");
     }
 
@@ -92,7 +92,8 @@ export class UserService implements IUserService {
       throw new AppError(StatusCodes.BAD_REQUEST, "Token invalid");
     }
     user.password = bcrypt.hashSync(payload.password, bcrypt.genSaltSync());
-    return;
+    await user.save();
+    return user;
   }
 
   async updateUser(payload: UpdateInformationInput) {
