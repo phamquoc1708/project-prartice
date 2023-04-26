@@ -3,7 +3,7 @@ import { ValidationService } from "./../../helpers/validation.service";
 import { JSONSchemaType } from "ajv";
 import { IUserService } from "./../services/user.service";
 import { HandleFunc } from "./../../controller";
-import { RegisterInput, VerifyTokenInput, CreatePasswordInput, UpdateInformationInput } from "../types/user.type";
+import { RegisterInput, VerifyTokenInput, CreatePasswordInput, UpdateInformationInput, LoginInput } from "../types/user.type";
 
 export class UserController {
   constructor(private userService: IUserService, private validation: ValidationService) {}
@@ -91,8 +91,30 @@ export class UserController {
     };
     return async (req, res, next) => {
       const payload = this.validation.validate(schema, req.body);
-      await this.userService.updateUser(payload);
+      const userId = req.user._id;
+      await this.userService.updateUser(userId, payload);
       res.status(StatusCodes.OK);
+    };
+  }
+
+  login(): HandleFunc {
+    const schema: JSONSchemaType<LoginInput> = {
+      type: "object",
+      properties: {
+        email: {
+          type: "string",
+          format: "email",
+        },
+        password: {
+          type: "string",
+        },
+      },
+      required: ["email", "password"],
+    };
+    return async (req, res, next) => {
+      const payload = this.validation.validate(schema, req.body);
+      const user = await this.userService.login(payload);
+      res.status(StatusCodes.OK).json({ user });
     };
   }
 }

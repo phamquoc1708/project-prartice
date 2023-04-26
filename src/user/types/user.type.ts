@@ -32,3 +32,8 @@ export type UpdateInformationInput = {
   title: string;
   memo: string | null;
 };
+
+export type LoginInput = {
+  email: string;
+  password: string;
+};

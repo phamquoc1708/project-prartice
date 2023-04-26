@@ -1,6 +1,6 @@
 import { StatusCodes } from "http-status-codes";
 import { AppError } from "../utils/error";
-import { decodeToken, verifyToken } from "../utils/token";
+import tokenUtil from "../utils/token";
 import { KeyTokenModel } from "../user/models/KeyToken.schema";
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { UserJWT } from "../user/types/user.type";
@@ -11,7 +11,7 @@ const HEADER = {
   AUTHORIZATION: "authorization",
 };
 
-interface newRequest extends Request {
+export interface newRequest extends Request {
   user?: any;
 }
 
@@ -23,7 +23,7 @@ export const checkAuth: RequestHandler = async (req: newRequest, res: Response, 
     if (!token) {
       return res.status(StatusCodes.UNAUTHORIZED).json("Forbidden Error");
     }
-    const user = decodeToken(token as string) as UserJWT;
+    const user = tokenUtil.decodeToken(token as string) as UserJWT;
     if (!user) {
       return res.status(StatusCodes.UNAUTHORIZED).json("Forbidden Error");
     }
@@ -31,7 +31,7 @@ export const checkAuth: RequestHandler = async (req: newRequest, res: Response, 
     if (!data) {
       return res.status(StatusCodes.UNAUTHORIZED).json("Forbidden Error");
     }
-    const userReq = verifyToken(token, data.privateKey);
+    const userReq = tokenUtil.verifyToken(token, data.privateKey);
     req.user = userReq;
     return next();
   } catch (err) {
