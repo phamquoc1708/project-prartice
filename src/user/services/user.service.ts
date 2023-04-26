@@ -8,15 +8,16 @@ import { ITokenService } from "./token.service";
 import { StatusCodes } from "http-status-codes";
 import { AppError } from "./../../utils/error";
 import { User, UserDoc } from "./../models/User.schema";
-import { RegisterInput, RegisterOutput, CreatePasswordInput, UpdateInformationInput } from "./../types/user.type";
-import { PaginateModel } from "mongoose";
+import { RegisterInput, RegisterOutput, CreatePasswordInput, UpdateInformationInput, LoginInput } from "./../types/user.type";
+import mongoose, { PaginateModel } from "mongoose";
 
 export interface IUserService {
   register(payload: RegisterInput): Promise<RegisterOutput>;
+  login(payload: LoginInput): Promise<object>;
   verifyCreatePasswordToken(payload: string): Promise<User>;
   createLinkCreatePassword(payload: User): string;
   createPassword(payload: CreatePasswordInput): Promise<User>;
-  updateUser(payload: UpdateInformationInput): Promise<void>;
+  updateUser(userId: string, payload: UpdateInformationInput): Promise<User>;
 }
 
 export class UserService implements IUserService {
@@ -96,12 +97,33 @@ export class UserService implements IUserService {
     return user;
   }
 
-  async updateUser(payload: UpdateInformationInput) {
-    // const user = await this.verifyCreatePasswordToken();
-    // if (!user) {
-    //   throw new AppError(StatusCodes.BAD_REQUEST, "Token invalid");
-    // }
-    // user.password = bcrypt.hashSync(payload, bcrypt.genSaltSync());
-    return;
+  async updateUser(userId: string, payload: UpdateInformationInput) {
+    const user = await this.repository.findById(userId);
+    if (!user) {
+      throw new AppError(StatusCodes.BAD_REQUEST, "Not found user");
+    }
+
+    return (await this.repository.findByIdAndUpdate(user._id, payload)) as User;
+  }
+
+  async login(payload: LoginInput) {
+    const user = await this.repository.findOne({ email: payload.email });
+    if (!user) {
+      throw new AppError(StatusCodes.BAD_REQUEST, "Email or password is incorrect");
+    }
+    const isMatchPassword = bcrypt.compareSync(payload.password, user.password as string);
+    if (!isMatchPassword) {
+      throw new AppError(StatusCodes.BAD_REQUEST, "Email or password is incorrect");
+    }
+    const privateKey = crypto.randomBytes(64).toString("hex");
+    const publicKey = crypto.randomBytes(64).toString("hex");
+
+    const storeToken = await this.tokenService.createAuthToken({ userId: user._id.toString(), privateKey, publicKey });
+
+    if (!storeToken) throw new AppError(StatusCodes.BAD_REQUEST, "Can't create token");
+
+    const tokens = this.tokenService.createTokenPair({ userId: user._id.toString(), email: user.email }, publicKey, privateKey);
+
+    return tokens;
   }
 }
