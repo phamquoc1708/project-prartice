@@ -21,7 +21,9 @@ const userController = new UserController(userServicer, validationService);
 router.post("/register", asyncHandler(userController.register()));
 router.post("/verify-create-password-token", asyncHandler(userController.verifyCreatePasswordToken()));
 router.post("/password", asyncHandler(userController.createPassword()));
-router.post("/profile", asyncHandler(userController.updateInformation()));
 router.post("/login", asyncHandler(userController.login()));
+router.post("/logout", checkAuth, asyncHandler(userController.logout()));
+router.put("/profile", checkAuth, asyncHandler(userController.updateProfile()));
+router.get("/profile", checkAuth, asyncHandler(userController.getProfile()));
 
 export default router;

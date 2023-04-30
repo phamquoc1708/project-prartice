@@ -1,7 +1,7 @@
 import mongoose, { Model, PaginateModel } from "mongoose";
 import mongoosePaginate from "mongoose-paginate-v2";
 
-const STATUS_USER = {
+export const STATUS_USER = {
   VERIFIED: "VERIFIED",
   UNVERIFIED: "UNVERIFIED",
 };
@@ -12,6 +12,7 @@ const ROLE_USER = {
 };
 
 export interface User {
+  _id?: string;
   fullName?: string;
   email: string;
   mobile?: string;

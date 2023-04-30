@@ -9,7 +9,7 @@ function errorHandler(error: Error, req: Request, res: Response, next: NextFunct
     return next();
   }
   if (error instanceof AppError) {
-    res.status(error.code).json(error);
+    res.status(error.code).json({ message: error.message });
     return next();
   } else if (error instanceof ValidationError) {
     res.status(StatusCodes.BAD_REQUEST).json({

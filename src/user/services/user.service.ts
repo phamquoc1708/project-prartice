@@ -7,9 +7,9 @@ import tokenUtils from "./../../utils/token";
 import { ITokenService } from "./token.service";
 import { StatusCodes } from "http-status-codes";
 import { AppError } from "./../../utils/error";
-import { User, UserDoc } from "./../models/User.schema";
+import { STATUS_USER, User, UserDoc } from "./../models/User.schema";
 import { RegisterInput, RegisterOutput, CreatePasswordInput, UpdateInformationInput, LoginInput } from "./../types/user.type";
-import mongoose, { PaginateModel } from "mongoose";
+import { PaginateModel } from "mongoose";
 
 export interface IUserService {
   register(payload: RegisterInput): Promise<RegisterOutput>;
@@ -17,7 +17,9 @@ export interface IUserService {
   verifyCreatePasswordToken(payload: string): Promise<User>;
   createLinkCreatePassword(payload: User): string;
   createPassword(payload: CreatePasswordInput): Promise<User>;
-  updateUser(userId: string, payload: UpdateInformationInput): Promise<User>;
+  updateUser(userId: string, payload: UpdateInformationInput): Promise<void>;
+  getProfileUser(userId: string): Promise<User>;
+  logout(userId: string): Promise<void>;
 }
 
 export class UserService implements IUserService {
@@ -42,7 +44,7 @@ export class UserService implements IUserService {
       throw new AppError(StatusCodes.BAD_REQUEST, "Cannot create user");
     }
 
-    // const linkCreatePassword = this.createLinkCreatePassword(user);
+    const linkCreatePassword = this.createLinkCreatePassword(user);
 
     // TODO: Send mail create password
 
@@ -64,6 +66,7 @@ export class UserService implements IUserService {
         email: user.email,
       },
       tokens,
+      // linkCreatePassword,
     };
   }
 
@@ -92,18 +95,30 @@ export class UserService implements IUserService {
     if (!user) {
       throw new AppError(StatusCodes.BAD_REQUEST, "Token invalid");
     }
+    if (user.createPasswordSecret) {
+      throw new AppError(StatusCodes.BAD_REQUEST, "Can't create password twice");
+    }
     user.password = bcrypt.hashSync(payload.password, bcrypt.genSaltSync());
+    user.status = STATUS_USER.VERIFIED;
     await user.save();
     return user;
   }
 
   async updateUser(userId: string, payload: UpdateInformationInput) {
-    const user = await this.repository.findById(userId);
+    const user = await this.repository.findOne({ _id: userId, status: STATUS_USER.VERIFIED });
+
     if (!user) {
       throw new AppError(StatusCodes.BAD_REQUEST, "Not found user");
     }
 
-    return (await this.repository.findByIdAndUpdate(user._id, payload)) as User;
+    await this.repository.findOneAndUpdate({ _id: userId }, payload);
+    return;
+  }
+
+  async getProfileUser(userId: string) {
+    const user = await this.repository.findOne({ _id: userId, status: STATUS_USER.VERIFIED });
+    if (!user) throw new AppError(StatusCodes.BAD_REQUEST, "Not found user");
+    return user;
   }
 
   async login(payload: LoginInput) {
@@ -125,5 +140,10 @@ export class UserService implements IUserService {
     const tokens = this.tokenService.createTokenPair({ userId: user._id.toString(), email: user.email }, publicKey, privateKey);
 
     return tokens;
+  }
+
+  async logout(userId: string) {
+    await this.tokenService.deleteTokenByUserId(userId);
+    return;
   }
 }
