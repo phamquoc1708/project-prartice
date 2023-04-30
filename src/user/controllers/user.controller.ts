@@ -4,6 +4,7 @@ import { JSONSchemaType } from "ajv";
 import { IUserService } from "./../services/user.service";
 import { HandleFunc } from "./../../controller";
 import { RegisterInput, VerifyTokenInput, CreatePasswordInput, UpdateInformationInput, LoginInput } from "../types/user.type";
+import assert from "assert";
 
 export class UserController {
   constructor(private userService: IUserService, private validation: ValidationService) {}
@@ -66,11 +67,11 @@ export class UserController {
     return async (req, res, next) => {
       const payload = this.validation.validate(schema, req.body);
       await this.userService.createPassword(payload);
-      res.status(StatusCodes.CREATED);
+      res.status(StatusCodes.CREATED).json({});
     };
   }
 
-  updateInformation(): HandleFunc {
+  updateProfile(): HandleFunc {
     const schema: JSONSchemaType<UpdateInformationInput> = {
       type: "object",
       properties: {
@@ -91,9 +92,17 @@ export class UserController {
     };
     return async (req, res, next) => {
       const payload = this.validation.validate(schema, req.body);
-      const userId = req.user._id;
+      const userId = req.user.userId;
       await this.userService.updateUser(userId, payload);
-      res.status(StatusCodes.OK);
+      res.status(StatusCodes.OK).json({});
+    };
+  }
+
+  getProfile(): HandleFunc {
+    return async (req, res, next) => {
+      const userId = req.user.userId;
+      const user = await this.userService.getProfileUser(userId);
+      res.status(StatusCodes.OK).json({ data: user });
     };
   }
 
@@ -115,6 +124,14 @@ export class UserController {
       const payload = this.validation.validate(schema, req.body);
       const user = await this.userService.login(payload);
       res.status(StatusCodes.OK).json({ user });
+    };
+  }
+
+  logout(): HandleFunc {
+    return async (req, res, next) => {
+      const userId = req.user.userId;
+      await this.userService.logout(userId);
+      res.status(StatusCodes.OK).json({});
     };
   }
 }

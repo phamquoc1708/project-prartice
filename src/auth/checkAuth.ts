@@ -31,7 +31,8 @@ export const checkAuth: RequestHandler = async (req: newRequest, res: Response, 
     if (!data) {
       return res.status(StatusCodes.UNAUTHORIZED).json("Forbidden Error");
     }
-    const userReq = tokenUtil.verifyToken(token, data.privateKey);
+
+    const userReq = tokenUtil.verifyToken(token, data.publicKey);
     req.user = userReq;
     return next();
   } catch (err) {

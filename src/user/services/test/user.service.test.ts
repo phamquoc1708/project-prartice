@@ -2,7 +2,7 @@ import { UserRepository } from "./../../repository/user.repository";
 import { ITokenService, TokenService } from "./../token.service";
 import { describe, expect, test } from "@jest/globals";
 import { IUserService, UserService } from "../user.service";
-import { User, UserDoc, UserModel } from "../../models/User.schema";
+import { STATUS_USER, User, UserDoc, UserModel } from "../../models/User.schema";
 import { clearDB, closeDB } from "../../../helpers/testing";
 import { PaginateModel } from "mongoose";
 import tokenUtils from "./../../../utils/token";
@@ -161,6 +161,107 @@ describe("UserService", () => {
 
       expect(userService.verifyCreatePasswordToken).toHaveBeenCalledTimes(1);
       expect(userService.verifyCreatePasswordToken).toHaveBeenCalledWith(payload.token);
+    });
+  });
+
+  describe("Update User", () => {
+    const payload = {
+      fullName: "PhamQuoc",
+      mobile: "0123456789",
+      title: "FullStack",
+      memo: "I'm ",
+    };
+    const email = "user@example.com";
+    it("should update success", async () => {
+      const mockUser = await repository.create({ email, status: STATUS_USER.VERIFIED });
+
+      await userService.updateUser(mockUser._id, payload);
+
+      const user = await repository.findOne({ email });
+
+      expect(user.fullName).toEqual(payload.fullName);
+      expect(user.mobile).toEqual(payload.mobile);
+      expect(user.title).toEqual(payload.title);
+    });
+
+    it("should update error user not found", async () => {
+      const userId = "6164638f6c2b42fbbe2c13a2";
+      await expect(userService.updateUser(userId, payload)).rejects.toThrow(Error("Not found user"));
+    });
+  });
+
+  describe("Get profile", () => {
+    const email = "user@example.com";
+    const userId = "6164638f6c2b42fbbe2c13a2";
+    it("should return profile", async () => {
+      repository.findOne = jest.fn().mockReturnValueOnce({ _id: userId, email });
+
+      const user = await userService.getProfileUser(userId);
+
+      expect(user.email).toEqual(email);
+      expect(user._id).toEqual(userId);
+    });
+
+    it("should return profile", async () => {
+      const userId = "6164638f6c2b42fbbe2c13a2";
+      await expect(userService.getProfileUser(userId)).rejects.toThrow(Error("Not found user"));
+    });
+  });
+
+  describe("Login", () => {
+    const payload = {
+      email: "user@example.com",
+      password: "password",
+    };
+
+    const user = {
+      _id: "6164638f6c2b42fbbe2c13a2",
+      email: "user@example.com",
+      password: "password",
+    };
+
+    const tokenPair = {
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+    };
+    it("Login Success", async () => {
+      repository.findOne = jest.fn().mockReturnValueOnce(user);
+      bcrypt.compareSync = jest.fn().mockReturnValueOnce(true);
+      tokenService.createAuthToken = jest.fn().mockReturnValueOnce(true);
+      tokenService.createTokenPair = jest.fn().mockReturnValueOnce(tokenPair);
+
+      const result = await userService.login(payload);
+
+      expect(repository.findOne).toHaveBeenCalledWith({ email: payload.email });
+      expect(bcrypt.compareSync).toHaveBeenCalledWith(payload.password, user.password);
+      expect(result).toEqual(tokenPair);
+    });
+
+    it("Incorrect Email", async () => {
+      repository.findOne = jest.fn().mockReturnValueOnce(undefined);
+      await expect(userService.login(payload)).rejects.toThrow(Error("Email or password is incorrect"));
+    });
+    it("Incorrect Password", async () => {
+      repository.findOne = jest.fn().mockReturnValueOnce(user);
+      bcrypt.compareSync = jest.fn().mockReturnValueOnce(false);
+      await expect(userService.login(payload)).rejects.toThrow(Error("Email or password is incorrect"));
+    });
+    it("Can't create token", async () => {
+      repository.findOne = jest.fn().mockReturnValueOnce(user);
+      bcrypt.compareSync = jest.fn().mockReturnValueOnce(true);
+      tokenService.createAuthToken = jest.fn().mockReturnValueOnce(false);
+
+      await expect(userService.login(payload)).rejects.toThrow(Error("Can't create token"));
+    });
+  });
+
+  describe("Logout", () => {
+    const userId = "6164638f6c2b42fbbe2c13a2";
+    it("should log out", async () => {
+      tokenService.deleteTokenByUserId = jest.fn().mockReturnValueOnce(true);
+      await userService.logout(userId);
+      expect(tokenService.deleteTokenByUserId).toBeCalledTimes(1);
+      expect(tokenService.deleteTokenByUserId).toHaveBeenCalledWith(userId);
     });
   });
 });

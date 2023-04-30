@@ -6,6 +6,7 @@ import JWT from "jsonwebtoken";
 export interface ITokenService {
   createAuthToken({ userId, privateKey, publicKey }: { userId: string; privateKey: string; publicKey: string }): Promise<object>;
   createTokenPair(payload: object, publicKey: string, privateKey: string): { accessToken: string; refreshToken: string };
+  deleteTokenByUserId(userId: string): Promise<void>;
 }
 
 export class TokenService implements ITokenService {
@@ -26,5 +27,10 @@ export class TokenService implements ITokenService {
     const refreshToken = JWT.sign(payload, privateKey, { expiresIn: "7 days" });
 
     return { accessToken, refreshToken };
+  }
+
+  async deleteTokenByUserId(userId: string) {
+    await this.repository.deleteOne({ userId });
+    return;
   }
 }
